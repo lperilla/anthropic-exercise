@@ -68,15 +68,15 @@ def run_agent(pnr: str, last_name: str, message: str) -> str:            # ✏�
     answer = ""
     turns = 1
     while response.stop_reason == "tool_use" and turns < MAX_TOOL_CALLS:
-        messages.append({"role": "assistant", "content": text_of(response)})
+        messages.append({"role": "assistant", "content": response.content})
         messages.append({"role": "user", "content": tool_results(response)})
-        answer = text_of(response)
         response = client.messages.create(
             model=MODEL, max_tokens=4096, system=runtime_preamble() + SYSTEM_PROMPT + TONE_ADDENDUM,
             thinking={"type": "adaptive"}, tools=tools, messages=messages,
         )
         turns += 1
 
+    answer = text_of(response)
     return answer
 
 
@@ -119,14 +119,24 @@ def build_tools() -> List[Dict[str, Any]]:                 # ✏️ Build 1, ste
                 "type": "object",
                 "properties": {
                     "flight_no": {"type": "string"},
-                    "date": {"type": "string", "description": "MM/DD/YYYY"},
+                    "date": {"type": "string", "description": "YYYY-MM-DD"},
                 },
                 "required": ["flight_no", "date"],
             },
         },
         {
             "name": "search_alternatives",
-            "description": "search",
+            "description": (
+                "Find the rebooking options Larkspur can actually offer this booking. "
+                "Reads the disrupted segment off the PNR itself, so origin, destination, "
+                "date, cabin and party size are resolved from the reservation and must not "
+                "be passed in: call lookup_booking first so the PNR is one that exists. "
+                "Returns a list of options, each with an option_id, the flights and times, "
+                "and seats available for the whole party, plus the options that were "
+                "excluded and why. Use it after get_flight_status has confirmed the "
+                "segment is disrupted, and before quoting any alternative to the customer. "
+                "Pass the option the customer picks to check_policy as chosen_option_id."
+            ),
             "input_schema": {
                 "type": "object",
                 "properties": {"pnr": {"type": "string"}},
